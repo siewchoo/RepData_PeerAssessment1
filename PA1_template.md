@@ -1,53 +1,18 @@
----
-output:
-  html_document:
-    fig_caption: yes
-    keep_md: yes
----
 Reproducible Research: Peer Assessment 1  
 ========================================
 Siew Choo  
 *date: Thursday, March 12, 2015*
 
 
-```{r message=FALSE}
+
+```r
 ## Load and attach packages.
 library(dplyr)
 library(ggplot2)
 ```
 
 
-```{r, echo=FALSE}
-##=====================================================================================================
-## Helper functions
-##=====================================================================================================
-## Function courtesy of Winston Chang's R cookbook
-multiplot <- function(..., plotlist=NULL, cols) {
-    require(grid)
 
-    # Make a list from the ... arguments and plotlist
-    plots <- c(list(...), plotlist)
-
-    numPlots = length(plots)
-
-    # Make the panel
-    plotCols = cols                          # Number of columns of plots
-    plotRows = ceiling(numPlots/plotCols) # Number of rows needed, calculated from # of cols
-
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(plotRows, plotCols)))
-    vplayout <- function(x, y)
-        viewport(layout.pos.row = x, layout.pos.col = y)
-
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-        curRow = ceiling(i/plotCols)
-        curCol = (i-1) %% plotCols + 1
-        print(plots[[i]], vp = vplayout(curRow, curCol ))
-    }
-}
-```  
 ##  
   
 This script file assumes that you have downloaded [repdata-data-activity.zip](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) and unzipped its contents into the same directory as the script.  
@@ -63,30 +28,36 @@ It was noted that
 
 Thus, I made the necessary provisions in the file read to skip the header and convert the "NA" strings to R's missing value indicator.  
   
-```{r}
+
+```r
 ## 1. Load the data.
 rawDf <- read.csv("activity.csv", sep=",", header = TRUE, stringsAsFactors=FALSE, na.strings="NA")
 ```
   
 2) Scope out the basic structure of the dataset.
   
-```{r echo=FALSE}
-## Scope out the data set. 
-str(rawDf)
+
+```
+## 'data.frame':	17568 obs. of  3 variables:
+##  $ steps   : int  NA NA NA NA NA NA NA NA NA NA ...
+##  $ date    : chr  "2012-10-01" "2012-10-01" "2012-10-01" "2012-10-01" ...
+##  $ interval: int  0 5 10 15 20 25 30 35 40 45 ...
 ```
 
 3) Determine which columns had NAs.  
  
-```{r echo=FALSE}
-## Report on whether NAs are found in the data set columns
-sapply(rawDf, function(x) any(is.na(x)))
+
+```
+##    steps     date interval 
+##     TRUE    FALSE    FALSE
 ```
   
 As shown, *steps* is the only variable with missing values.  
   
 The data set was relatively clean and the only preprocessing required was to convert the date strings to R's date object.  
     
-```{r}
+
+```r
 ## 2. Process/transform the data (if necessary) into a format suitable for your analysis
 rawDf$date <- as.Date(rawDf$date, "%Y-%m-%d")
 ```
@@ -94,7 +65,8 @@ rawDf$date <- as.Date(rawDf$date, "%Y-%m-%d")
 ### What is mean total number of steps taken per day?  
 For this part of the assignment, we were told to ignore the missing values in the dataset. I have assumed this to mean that we are to exclude observations with  missing values.  
    
-```{r}
+
+```r
 byDayDf <-
 	na.omit(rawDf) %>% 
 	select(steps, date, interval) %>%
@@ -102,7 +74,8 @@ byDayDf <-
 	summarize(totalSteps = sum(steps))
 ```
 
-```{r}
+
+```r
 ## 2. Make a histogram of the total number of steps taken each day.
 noOfDays <- length(unique(rawDf$date))	## No of days but how to incorporate it into qplot??
 with(byDayDf, 
@@ -114,14 +87,29 @@ with(byDayDf,
          ylab="Count"))
 ```
 
-```{r}
+![](PA1_template_files/figure-html/unnamed-chunk-8-1.png) 
+
+
+```r
 ## 3. Calculate and report the mean and median of the total number of steps taken per day.
 mean(byDayDf$totalSteps, na.rm=TRUE)
+```
+
+```
+## [1] 10766.19
+```
+
+```r
 median(byDayDf$totalSteps, na.rm=TRUE)
+```
+
+```
+## [1] 10765
 ```
   
 ### What is the average daily activity pattern?
-```{r}
+
+```r
 byIntervalDf <-
 	rawDf %>% 
 	group_by(interval) %>%
@@ -135,23 +123,39 @@ with(byIntervalDf,
           ylab="Average Number of Steps"))
 ```
 
-```{r}
+![](PA1_template_files/figure-html/unnamed-chunk-10-1.png) 
+
+
+```r
 ## 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 byIntervalDf[which.max(byIntervalDf$avgSteps), "interval"]
+```
+
+```
+## Source: local data frame [1 x 1]
+## 
+##   interval
+## 1      835
 ```
 
   
 ###Imputing missing values  
 It is worth noting that the presence of missing data may introduce bias into some calculations or summaries of the data. In this part of the assignment, we will be looking at the effects of imputation on our data set.  
   
-```{r}
+
+```r
 ## 1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
 sum(is.na(rawDf$steps))
-``` 
+```
+
+```
+## [1] 2304
+```
   
 The number of observations in the data set containing NAs is approximately 13%.  
   
-```{r}
+
+```r
 ## 2. Devise a strategy for filling in all of the missing values in the dataset. 
 ##    The strategy does not need to be sophisticated. 
 ##    For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
@@ -159,7 +163,8 @@ The number of observations in the data set containing NAs is approximately 13%.
   
 As my imputation strategy, I have chosen to replace missing values for the *steps* variable with the mean for the corresponding 5-minute interval, averaged across all days.  
   
-```{r}
+
+```r
 ## 3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
 imputed <- rawDf
 naIdx <- which(is.na(rawDf$steps))
@@ -177,7 +182,8 @@ For ease of comparison, I have
 
 - included the before and after imputation summaries.  
   
-```{r}
+
+```r
 ## 4. Make a histogram of the total number of steps taken each day.
 ##    Calculate and report the mean and median total number of steps taken per day. 
 ##    Do these values differ from the estimates from the first part of the assignment? 
@@ -203,9 +209,30 @@ gNoNA <- ggplot(byDayDf, aes(x=totalSteps)) +
 
 ## Function courtesy of Winston Chang's R cookbook
 multiplot(gImp, gNoNA, cols=2)
+```
 
+```
+## Loading required package: grid
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-15-1.png) 
+
+```r
 summary(byDayDf$totalSteps)
+```
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##      41    8841   10760   10770   13290   21190
+```
+
+```r
 summary(byDayImputed$totalSteps)
+```
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##      41    9819   10760   10770   12810   21190
 ```
   
 Based on the summaries, the reported mean and median before and after the imputation remains the same, More observable differences can be seen in the 1st and 3rd quantiles although the difference is fairly small.   
@@ -214,7 +241,8 @@ Imputing missing data with interval means has caused the estimates of the total 
   
   
 ### Are there differences in activity patterns between weekdays and weekends?
-```{r}
+
+```r
 ## For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
 ##
 ## 1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
@@ -223,7 +251,8 @@ imputed$partOfWeek <- as.factor(ifelse(weekdays(imputed$date) %in% c("Saturday",
 ```
   
   
-``` {r}
+
+```r
 ## 2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
 ##    See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
 ##
@@ -234,6 +263,8 @@ qplot(interval, steps, data=byIntervalImputed) +
     ylab("Number of Steps") + 
     facet_wrap(~partOfWeek, ncol=1)
 ```
+
+![](PA1_template_files/figure-html/unnamed-chunk-17-1.png) 
   
 The weekend plot has a much flatter overall profile compared to the plot for weekday, implying more constant movement throughout Saturday and Sunday. The plot for weekday displays a greater disparity with a high rate of movement between interval 800-900 while the rest of the day averaged about 50 steps per 5-minute interval.  
   
